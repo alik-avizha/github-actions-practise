@@ -1,121 +1,120 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { sum } from './utils/sum'
 import './App.css'
 
+const PIPELINE = [
+  {
+    id: 'install',
+    title: 'Install',
+    command: 'yarn install --frozen-lockfile',
+    note: 'Установка зависимостей',
+  },
+  {
+    id: 'lint',
+    title: 'Lint',
+    command: 'yarn lint',
+    note: 'Проверка кода (oxlint)',
+    parallel: true,
+  },
+  {
+    id: 'test',
+    title: 'Test',
+    command: 'yarn test:ci',
+    note: 'Unit-тесты (vitest run)',
+    parallel: true,
+  },
+  {
+    id: 'build',
+    title: 'Build',
+    command: 'yarn build',
+    note: 'Сборка в dist/',
+  },
+] as const
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [a, setA] = useState(1)
+  const [b, setB] = useState(2)
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+    <div className="app">
+      <header className="header">
+        <p className="eyebrow">React + Vite + GitHub Actions</p>
+        <h1>github-actions-practise</h1>
+        <p className="subtitle">
+          Учебный проект с CI: установка, линтинг, тесты и сборка при каждом push
+          в <code>main</code>.
+        </p>
+      </header>
+
+      <section className="card" aria-labelledby="pipeline-title">
+        <h2 id="pipeline-title">CI Pipeline</h2>
+        <p className="section-hint">
+          Стадии <strong>lint</strong> и <strong>test</strong> выполняются параллельно
+          после install.
+        </p>
+
+        <ol className="pipeline">
+          {PIPELINE.map((stage, index) => (
+            <li
+              key={stage.id}
+              className={'parallel' in stage ? 'pipeline-step parallel' : 'pipeline-step'}
+            >
+              <span className="step-index">{index + 1}</span>
+              <div className="step-body">
+                <div className="step-title-row">
+                  <strong>{stage.title}</strong>
+                  {'parallel' in stage && stage.parallel && (
+                    <span className="badge">parallel</span>
+                  )}
+                </div>
+                <code>{stage.command}</code>
+                <span className="step-note">{stage.note}</span>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
-      <div className="ticks"></div>
+      <section className="card" aria-labelledby="demo-title">
+        <h2 id="demo-title">Демо функции sum()</h2>
+        <p className="section-hint">
+          Используется в тесте <code>src/utils/sum.test.ts</code> — пример кода,
+          который проверяет CI.
+        </p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+        <div className="calculator">
+          <label className="field">
+            <span>a</span>
+            <input
+              type="number"
+              value={a}
+              onChange={(event) => setA(Number(event.target.value))}
+            />
+          </label>
+
+          <span className="operator" aria-hidden="true">
+            +
+          </span>
+
+          <label className="field">
+            <span>b</span>
+            <input
+              type="number"
+              value={b}
+              onChange={(event) => setB(Number(event.target.value))}
+            />
+          </label>
+
+          <span className="operator" aria-hidden="true">
+            =
+          </span>
+
+          <output className="result" aria-live="polite">
+            {sum(a, b)}
+          </output>
         </div>
       </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </div>
   )
 }
 

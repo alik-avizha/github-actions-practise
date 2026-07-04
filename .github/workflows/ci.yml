@@ -1,40 +1,74 @@
+# =============================================================================
+# CI — непрерывная интеграция проекта
+# =============================================================================
+# Логика пайплайна (см. диаграмму в README.md):
+#
+#   install ──┬──> lint ──┐
+#             └──> test  ──┴──> build ──> upload artifact
+#
+# Каждый job выполняется на ОТДЕЛЬНОМ runner (виртуальной машине).
+# node_modules между jobs не передаются — в каждом job зависимости
+# устанавливаются заново, но быстро благодаря кешу Yarn (setup-node).
+# =============================================================================
+
 name: CI
 
+# Когда запускать workflow
 on:
   push:
-    branches: [main]
+    branches: [main]          # при пуше в main
   pull_request:
-    branches: [main]
+    branches: [main]          # при открытии/обновлении PR в main
 
+# Если приходит новый push в ту же ветку — отменить предыдущий запуск
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Минимальные права для безопасности (workflow только читает код)
+permissions:
+  contents: read
+
 jobs:
+  # ---------------------------------------------------------------------------
+  # Стадия 1: Установка зависимостей
+  # Проверяет, что yarn.lock корректен и пакеты устанавливаются без ошибок
+  # ---------------------------------------------------------------------------
   install:
     name: Install Dependencies
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest    # ОС runner: Ubuntu (бесплатный tier GitHub)
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4   # Клонирует репозиторий на runner
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'yarn'
+          node-version: '22'        # Версия Node.js (совпадает с локальной разработкой)
+          cache: 'yarn'             # Кеширует пакеты Yarn между запусками workflow
           cache-dependency-path: yarn.lock
 
       - name: Install dependencies
+        # --frozen-lockfile: запрещает менять yarn.lock (важно для воспроизводимости CI)
         run: yarn install --frozen-lockfile
 
+      - name: Verify installation
+        # Быстрая проверка, что node_modules создан и ключевые пакеты на месте
+        run: test -d node_modules && yarn --version
+
+  # ---------------------------------------------------------------------------
+  # Стадия 2a: Линтинг (параллельно с test)
+  # Запускается только после успешного install (needs: install)
+  # ---------------------------------------------------------------------------
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
-    needs: install
+    needs: install              # Зависимость: ждём успешного завершения install
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -47,15 +81,20 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Run linter
+        # oxlint проверяет код на ошибки и плохие практики (скрипт "lint" в package.json)
         run: yarn lint
 
+  # ---------------------------------------------------------------------------
+  # Стадия 2b: Тесты (параллельно с lint)
+  # ---------------------------------------------------------------------------
   test:
     name: Run Tests
     runs-on: ubuntu-latest
     needs: install
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -68,17 +107,21 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Run tests
-        run: yarn test
-        env:
-          CI: true
+        # test:ci = vitest run — однократный прогон без watch-режима (важно для CI)
+        run: yarn test:ci
 
+  # ---------------------------------------------------------------------------
+  # Стадия 3: Сборка
+  # Запускается только когда И lint, И test прошли успешно
+  # ---------------------------------------------------------------------------
   build:
     name: Build Project
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test]          # Оба предыдущих job должны быть зелёными
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -91,11 +134,13 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Build project
+        # tsc -b (проверка типов) + vite build (сборка в папку dist/)
         run: yarn build
 
       - name: Upload build artifacts
+        # Сохраняет dist/ как артефакт — можно скачать из UI GitHub Actions
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist
-          retention-days: 7
+          name: dist              # Имя артефакта в интерфейсе GitHub
+          path: dist              # Папка для загрузки
+          retention-days: 7       # Хранить артефакт 7 дней
